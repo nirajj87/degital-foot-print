@@ -1,0 +1,8 @@
+requests
+dnspython
+python-whois
+cryptography
+pandas
+beautifulsoup4
+colorama
+python-dotenv
