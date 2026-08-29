@@ -1,0 +1,10 @@
+TXT record to add at your DNS host when the report says DMARC is missing.
+
+Type:  TXT
+Host:  _dmarc
+Name:  _dmarc.yourdomain.com
+TTL:   3600
+Value: v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com; fo=1; adkim=s; aspf=s; pct=100
+
+Create inbox dmarc@yourdomain.com (or change rua). After reports look clean, you can use p=reject.
+Check: nslookup -type=TXT _dmarc.yourdomain.com

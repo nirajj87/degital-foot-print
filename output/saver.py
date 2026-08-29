@@ -51,15 +51,20 @@ def save_outputs(data, json_path: str = None, csv_path: str = None, out_dir: str
 
     # Prepare summary CSV
     risk = data.get("risk_analysis", {})
+    links = data.get("public_links") or []
+    found = [x.get("url") for x in links if x.get("status") == "found" and x.get("url")]
     summary = {
         "target": data.get("target"),
         "type": data.get("type"),
         "risk_level": risk.get("level"),
         "score": risk.get("score"),
+        "breach_count": (data.get("view") or {}).get("breach_count") or 0,
+        "public_links_found": len(found),
+        "public_urls": " | ".join(found),
         "timestamp": data.get("timestamp") or datetime.now().isoformat()
     }
     pd.DataFrame([summary]).to_csv(csv_path, index=False)
 
-    print(f"\n📄 JSON saved → {json_path}\n📊 CSV saved → {csv_path}")
+    print(f"\nJSON saved -> {json_path}\nCSV saved -> {csv_path}")
 
     return json_path, csv_path

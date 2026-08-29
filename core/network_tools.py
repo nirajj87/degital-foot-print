@@ -27,14 +27,15 @@ def fetch_ssl(domain, port=443, timeout=6):
             with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
                 der = ssock.getpeercert(binary_form=True)
                 pem = ssl.DER_cert_to_PEM_cert(der)
-                info["pem"] = pem
                 try:
                     cert = x509.load_pem_x509_certificate(pem.encode(), default_backend())
+                    after = getattr(cert, "not_valid_after_utc", None) or cert.not_valid_after
+                    before = getattr(cert, "not_valid_before_utc", None) or cert.not_valid_before
                     info["parsed"] = {
                         "subject": cert.subject.rfc4514_string(),
                         "issuer": cert.issuer.rfc4514_string(),
-                        "not_before": str(cert.not_valid_before),
-                        "not_after": str(cert.not_valid_after),
+                        "not_before": str(before),
+                        "not_after": str(after),
                     }
                 except Exception as e:
                     info["parsed_error"] = str(e)

@@ -1,0 +1,16 @@
+[Unit]
+Description=Digital Footprint Analyzer web UI
+After=network.target
+
+[Service]
+Type=simple
+User=dfanalyzer
+Group=dfanalyzer
+WorkingDirectory=/opt/dfanalyzer/app
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/dfanalyzer/app/venv/bin/python main.py --web --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

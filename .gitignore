@@ -1,9 +1,3 @@
-# ===============================
-# 🐍 PYTHON PROJECT GITIGNORE
-# For: Digital Footprint Analyzer
-# ===============================
-
-# ---- Python cache & build ----
 __pycache__/
 *.py[cod]
 *$py.class
@@ -16,44 +10,27 @@ dist/
 build/
 .eggs/
 
-# ---- Virtual environments ----
 venv/
 env/
 .venv/
 ENV/
-env.bak/
-venv.bak/
 
-# ---- Logs & Reports ----
 *.log
-*.csv
-*.json
 logs/
-osint_output/
-output/
-*.sqlite
-*.db
+osint_output/*
+!osint_output/.gitkeep
 
-# ---- Config & Secrets ----
-#config.py
-*.env
 .env
+.env.local
 secrets.json
 keys.json
 
-# ---- IDE / Editor files ----
 .vscode/
 .idea/
 *.swp
 *.swo
-*.bak
 .DS_Store
 Thumbs.db
-
-# ---- Jupyter & Notebooks ----
 .ipynb_checkpoints/
-
-# ---- Temporary files ----
 tmp/
 temp/
-~$*
