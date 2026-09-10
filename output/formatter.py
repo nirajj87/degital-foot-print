@@ -111,6 +111,27 @@ def short_summary(data):
             if flag.get("url"):
                 lines.append(f"    {flag['url']}")
 
+    sites = (data.get("results") or {}).get("account_presence") or {}
+    if sites.get("status") == "ok":
+        lines.append("")
+        lines.append(
+            f"{Style.BRIGHT}{Fore.CYAN}Registered accounts"
+            f"{Style.RESET_ALL} ({sites.get('found_count', 0)} found / "
+            f"{sites.get('checked', 0)} checked, "
+            f"{sites.get('rate_limited_count', 0)} rate-limited)"
+        )
+        for row in sites.get("found") or []:
+            extra = []
+            if row.get("email_recovery"):
+                extra.append(f"recovery {row['email_recovery']}")
+            if row.get("phone_recovery"):
+                extra.append(f"phone {row['phone_recovery']}")
+            suffix = f" — {', '.join(extra)}" if extra else ""
+            lines.append(f"  [+] {row.get('name')} ({row.get('domain')}){suffix}")
+    elif sites.get("status") == "unavailable":
+        lines.append("")
+        lines.append(f"{Fore.YELLOW}Site scan unavailable:{Style.RESET_ALL} {sites.get('reason')}")
+
     graph = (data.get("view") or {}).get("graph") or data.get("graph") or {}
     if graph.get("edges"):
         lines.append("")

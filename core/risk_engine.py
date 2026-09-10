@@ -31,6 +31,14 @@ def risk_score(results, view=None):
         score += min(10, confirmed * 2)
         reasons.append(f"{confirmed} confirmed public profile(s)")
 
+    sites = results.get("account_presence") or {}
+    hf = sites.get("found_count") or len(sites.get("found") or [])
+    if sites.get("status") == "ok" and hf:
+        score += min(18, 4 + hf)
+        reasons.append(f"Email registered on {hf} site(s) (of {sites.get('checked', '?')} checked)")
+    elif sites.get("status") == "ok" and (sites.get("rate_limited_count") or 0) > 10:
+        reasons.append(f"{sites.get('rate_limited_count')} site checks rate-limited (retry later)")
+
     hygiene = (results.get("github_hygiene") or {}).get("flags") or []
     secrets = [f for f in hygiene if f.get("kind") == "sensitive_file"]
     emails = [f for f in hygiene if f.get("kind") == "email_in_readme"]

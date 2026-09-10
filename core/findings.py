@@ -121,6 +121,67 @@ def build_findings(report: dict) -> dict:
             }
         )
 
+    sites = results.get("account_presence") or {}
+    sites_found = sites.get("found") or []
+    if sites.get("status") == "ok" and sites_found:
+        names = [f.get("domain") or f.get("name") for f in sites_found[:12]]
+        more = len(sites_found) - len(names)
+        detail = ", ".join(str(n) for n in names if n)
+        if more > 0:
+            detail += f" (+{more} more)"
+        extras = []
+        for f in sites_found:
+            if f.get("email_recovery"):
+                extras.append(f"{f.get('name')}: recovery {f['email_recovery']}")
+            if f.get("phone_recovery"):
+                extras.append(f"{f.get('name')}: phone {f['phone_recovery']}")
+        if extras:
+            detail += " · " + "; ".join(extras[:4])
+        findings.append(
+            {
+                "severity": "medium",
+                "title": f"Email registered on {len(sites_found)} site(s)",
+                "detail": detail,
+                "action": "Review accounts you no longer use; enable 2FA on important ones.",
+            }
+        )
+        actions.append(
+            f"Review {len(sites_found)} detected account(s); close unused services and turn on 2FA."
+        )
+        for f in sites_found[:8]:
+            findings.append(
+                {
+                    "severity": "low",
+                    "title": f"Account exists: {f.get('name')}",
+                    "detail": " · ".join(
+                        x
+                        for x in (
+                            f.get("domain"),
+                            f"recovery {f['email_recovery']}" if f.get("email_recovery") else None,
+                            f"phone {f['phone_recovery']}" if f.get("phone_recovery") else None,
+                        )
+                        if x
+                    ),
+                    "url": f"https://{f['domain']}" if f.get("domain") else None,
+                }
+            )
+    elif sites.get("status") == "ok" and sites.get("rate_limited_count"):
+        findings.append(
+            {
+                "severity": "info",
+                "title": f"Site checks rate-limited on {sites.get('rate_limited_count')} site(s)",
+                "detail": "Retry later or change IP/VPN. Other modules still ran.",
+            }
+        )
+    elif sites.get("status") == "unavailable":
+        findings.append(
+            {
+                "severity": "info",
+                "title": "Site presence scan not available",
+                "detail": sites.get("reason") or "Install dependencies with: pip install -r requirements.txt",
+            }
+        )
+
     gravatar = results.get("gravatar") or {}
     if gravatar.get("status") == "found":
         findings.append(
@@ -254,6 +315,8 @@ def build_findings(report: dict) -> dict:
         "people": people,
         "github_accounts": accounts,
         "breach_count": breaches.get("count") or 0,
+        "sites_found_count": len((results.get("account_presence") or {}).get("found") or []),
+        "sites_checked": (results.get("account_presence") or {}).get("checked") or 0,
         "graph": report.get("graph") or {},
         "history": delta,
     }

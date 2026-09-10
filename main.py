@@ -18,6 +18,7 @@ from core.findings import CONSUMER_MAIL, build_findings, is_consumer_mail
 from core.github_hygiene import scan_accounts
 from core.github_public import enrich_username, find_accounts_for_email, websites_from_accounts
 from core.history import diff_reports, previous_report
+from core.account_presence import scan_email_accounts
 from core.identity import classify_target
 from core.network_tools import dns_lookup, fetch_ssl, whois_lookup
 from core.phone_public import find_public_mentions
@@ -34,6 +35,20 @@ from core.utils import now_str
 from output.formatter import short_summary
 from output.html_report import write_html_report
 from output.saver import save_outputs
+
+# Set by CLI / web; email scans run 120+ site registration checks unless disabled.
+_SITES_OVERRIDE: bool | None = None
+
+
+def set_account_presence_enabled(enabled: bool | None) -> None:
+    global _SITES_OVERRIDE
+    _SITES_OVERRIDE = enabled
+
+
+def _account_presence_wanted() -> bool:
+    if _SITES_OVERRIDE is not None:
+        return _SITES_OVERRIDE
+    return bool(CONFIG.get("ACCOUNT_PRESENCE_ENABLED", True))
 
 init(autoreset=True)
 
@@ -74,6 +89,10 @@ def analyze_email(identity):
         tasks["whois"] = lambda: whois_lookup(domain)
         tasks["dns"] = lambda: dns_lookup(domain)
         tasks["ssl"] = lambda: fetch_ssl(domain)
+    if _account_presence_wanted():
+        timeout = float(CONFIG.get("ACCOUNT_PRESENCE_TIMEOUT") or 10)
+        print(f"{Fore.CYAN}Sites:{Style.RESET_ALL} email account presence scan (120+ sites)…")
+        tasks["account_presence"] = lambda: scan_email_accounts(email, timeout=timeout)
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(fn): name for name, fn in tasks.items()}
@@ -86,6 +105,16 @@ def analyze_email(identity):
 
     results["breaches"] = normalize_breaches(email, results.get("hibp"), CONFIG.get("HIBP_API_KEY"))
     results["search_links"] = public_search_links(email)
+    sites = results.get("account_presence") or {}
+    if sites.get("status") == "ok":
+        print(
+            f"{Fore.CYAN}Sites:{Style.RESET_ALL} "
+            f"{sites.get('found_count', 0)} found / "
+            f"{sites.get('checked', 0)} checked "
+            f"({sites.get('rate_limited_count', 0)} rate-limited)"
+        )
+    elif sites.get("status") == "unavailable":
+        print(f"{Fore.YELLOW}Site scan skipped:{Style.RESET_ALL} {sites.get('reason')}")
     return results
 
 
@@ -257,14 +286,31 @@ def run_scan(target: str, forced_type: str | None = None) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Digital footprint report: breaches, GitHub, domain hygiene, leak files."
+        description="Digital footprint report: breaches, 120+ site presence, GitHub, domain hygiene."
     )
     parser.add_argument("target", nargs="?", help="email | phone | username | github:name | domain")
     parser.add_argument("--type", dest="forced_type", choices=["email", "phone", "username", "domain"])
+    parser.add_argument(
+        "--no-sites",
+        action="store_true",
+        help="Skip email account presence scan (120+ sites)",
+    )
+    parser.add_argument(
+        "--sites",
+        action="store_true",
+        help="Force site presence scan on (overrides ACCOUNT_PRESENCE_ENABLED=false)",
+    )
     parser.add_argument("--web", action="store_true", help="Start the HTML dashboard")
     parser.add_argument("--host", help="Dashboard bind host (default WEB_HOST or 127.0.0.1)")
     parser.add_argument("--port", type=int, help="Dashboard port (default WEB_PORT or 8765)")
     args = parser.parse_args()
+
+    if args.no_sites and args.sites:
+        parser.error("use either --sites or --no-sites, not both")
+    if args.no_sites:
+        set_account_presence_enabled(False)
+    elif args.sites:
+        set_account_presence_enabled(True)
 
     if args.web:
         from output.webui import start_web
